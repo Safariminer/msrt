@@ -32,8 +32,14 @@ class MSRTLogFunction : public MSRT::Function {
 public:
 	void Execute(std::vector<MSRT::FunctionArgument> args) {
 		for (int i = 0; i < args.size(); i++) {
-			std::regex reg_nl("\\n");
-			std::cout << args.at(i).data.replace(args.at(i).data.find("\\n"), std::string("\\n").length(), "\n");
+			// std::cout << args.at(i).data.replace(args.at(i).data.find("\\n"), std::string("\\n").length(), "\n");
+			for (int j = 0; j < args.at(i).data.size(); j++) {
+				if (args.at(i).data.at(j) == '\\') {
+					if (args.at(i).data.at(j + 1) == 'n') std::cout << "\n";
+					j += 1;
+				}
+				else std::cout << args.at(i).data.at(j);
+			}
 		}
 	}
 };
@@ -72,7 +78,7 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 		MSRT::Log(MSRT::LogType::ERROR, "Couldn't load file " + file + "!");
 		abort();
 	}
-	while (std::getline(script, line)) data += line + "\n";
+	while (std::getline(script, line)) data += line + " \n";
 
 	if(dataread){
 		std::cout << data + "\n---\n";
@@ -86,6 +92,15 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 	MSRT::Token newToken;
 	newToken.type = TokenType::UNDEFINED;
 	for (int i = 0; i < data.size(); i++) {
+
+		if (data.at(i) == ';') {
+			std::cout << "inComment: " << inComment << "\n";
+			std::cout << "inSingleLineComment: " << inSingleLineComment << "\n";
+			std::cout << "inMagic: " << inMagic << "\n";
+			if (i + 1 < data.size()) std::cout << "Next character: " << data.at(i + 1);
+			std::cout << "---\n\n";
+		}
+
 		if (!inComment && !inSingleLineComment && !inMagic) {
 			
 			if (data.at(i) == '/') {
@@ -128,23 +143,25 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 					if (data.at(i) == '"') {
 						newToken.type = TokenType::MAGIC;
 						inMagic = true;
-						i++;
+						// i++;
 					}
 					if (data.at(i) == ';' || data.at(i) == ' ' || data.at(i) == '\n' || data.at(i) == '(' || data.at(i) == ')') {
 						if (data.at(i) == '(') newToken.type = TokenType::FUNCTION;
 						newSentence.tokens.push_back(newToken);
 						newToken.tokenContent = "";
 						newToken.type = MSRT::TokenType::UNDEFINED;
-						if (data.at(i) == ';' || data.at(i) == '\n') {
+						if ((data.at(i) == ';' && data.at(i+1) == '\n')|| data.at(i) == '\n') {
 							program.push_back(newSentence);
 							newSentence.tokens.clear();
 						}
 						
 					}
+					// if (data.at(i) == '"') i++;
 				}
 				else {
 					if(data.at(i) != ';') newToken.tokenContent += data.at(i);
 				}
+				if (data.at(i) == '"') i++;
 			}
 			
 		}
@@ -176,13 +193,23 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 		}
 
 	}
-	
-
+	std::cout << "Sentences before cleanup: " << program.size() << "\n";
 	for (int s = 0; s < program.size(); s++) {
-
-		if (program.at(s).tokens.at(0).tokenContent.at(0) == '\n') program.at(s).tokens.at(0).tokenContent.erase(0,1);
 		program.at(s).CleanSentence();
+		if (program.at(s).tokens.size() == 0) {
+			// program.erase(program.begin() + s, program.begin() + (s + 1));
+			// s--;
+		}
+
 		program.at(s).AnalyseSentence();
+	}
+
+	std::cout << "Sentences after cleanup: " << program.size() << "\n";
+	for (int s = 0; s < program.size(); s++) {
+		if(program.at(s).tokens.size() != 0){
+		if (program.at(s).tokens.at(0).tokenContent.at(0) == '\n') program.at(s).tokens.at(0).tokenContent.erase(0,1);
+		// program.at(s).CleanSentence();
+		// program.at(s).AnalyseSentence();
 		if (verboseparsing) std::cout << "\n\nSentence " << s << ":\n";
 		if (verboseparsing) for (int t = 0; t < program.at(s).tokens.size(); t++) {
 			std::cout << "\"" + program.at(s).tokens.at(t).tokenContent + "\" ";
@@ -198,6 +225,7 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 			}
 			std::cout << " | ";
 		}
+		}
 		if (verboseparsing) std::cout << "\n";
 	}
 	std::cout << "\n\n---\n\n";
@@ -206,7 +234,8 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 
 void MSRT::Run() {
 	for (int i = 0; i < program.size(); i++) {
-		program.at(i).RunSentence();
+		if(program.at(i).tokens.size() > 0)
+			program.at(i).RunSentence();
 	}
 	std::cout << "\n\n";
 }
@@ -317,7 +346,14 @@ void MSRT::Sentence::RunSentence(){
 
 void MSRT::Sentence::CleanSentence() {
 	for (int i = 0; i < tokens.size(); i++) {
-		if (tokens.at(i).tokenContent == " " || tokens.at(i).tokenContent == ")") tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
+		if(tokens.at(i).tokenContent!="" && tokens.at(i).type != TokenType::MAGIC) if (tokens.at(i).tokenContent.at(0) == '\n' || tokens.at(i).tokenContent.at(0) == ' ') tokens.at(i).tokenContent.erase(0, 1);
+		bool hasErased = false;
+		if ((tokens.at(i).tokenContent == " " || tokens.at(i).tokenContent == ")" || tokens.at(i).tokenContent == "" || tokens.at(i).tokenContent == "\n") && tokens.at(i).type != TokenType::MAGIC) {
+			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1); 
+			hasErased = true;
+			i--;
+		}
+		// if(hasErased) i--;
 	}
 }
 
