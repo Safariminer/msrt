@@ -26,6 +26,14 @@ std::map<std::string, MSRT::VarType> variablesTypes;
 std::map<std::string, std::string> varText;
 std::map<std::string, int> varInteger;
 std::map<std::string, double> varReal;
+int currLine;
+void MSRT::Run() {
+	for (currLine = 0; currLine < program.size(); currLine++) {
+		if (program.at(currLine).tokens.size() > 0)
+			program.at(currLine).RunSentence();
+	}
+	std::cout << "\n\n";
+}
 
 
 class MSRTLogFunction : public MSRT::Function {
@@ -45,8 +53,49 @@ public:
 };
 
 
+class MSRTEvalFunction : public MSRT::Function {
+public:
+	void Execute(std::vector<MSRT::FunctionArgument> args) {
+		for (int i = 0; i < args.size(); i++) {
+			std::vector<MSRT::Sentence> sentences = MSRT::Parse(args.at(i).data, false);
+			for (int j = 0; j < sentences.size(); j++) {
+				if(sentences.at(i).tokens.size() != 0) sentences.at(i).RunSentence();
+			}
+		}
+	}
+};
+
+
+class MSRTWhileFunction : public MSRT::Function {
+public:
+	void Execute(std::vector<MSRT::FunctionArgument> args) {
+		int start = currLine + 1;
+		int stop = program.size() - 1;
+		for (int i = start; i < program.size(); i++) {
+			for (int j = 0; j < program.at(i).tokens.size(); j++) {
+				if (program.at(i).tokens.at(j).type == MSRT::TokenType::KEYWORD) {
+					if (keywordMap.at(program.at(i).tokens.at(j).tokenContent) == MSRT::Keyword::SCOPEEND) stop = j;
+				}
+			}
+		}
+		if (args.at(0).data == "True") {
+			while(true){
+				for (int i = start; i < stop; i++) {
+					if(program.at(i).tokens.size() != 0) program.at(i).RunSentence();
+				}
+			}
+		}
+	}
+};
+
 void MSRT::InitKeywordMap() {
 	keywordMap.insert_or_assign("declare", MSRT::Keyword::DECLARE);
+	keywordMap.insert_or_assign("True", MSRT::Keyword::TRUE);
+	keywordMap.insert_or_assign("False", MSRT::Keyword::FALSE);
+	keywordMap.insert_or_assign("Getline", MSRT::Keyword::GETLINE);
+
+	keywordMap.insert_or_assign("{", MSRT::Keyword::SCOPESTART);
+	keywordMap.insert_or_assign("}", MSRT::Keyword::SCOPEEND);
 }
 
 void MSRT::InitVarTypeMap() {
@@ -63,28 +112,13 @@ void MSRT::InitVarTypeMap() {
 
 void MSRT::InitFunctionMap() {
 	functionMap.insert_or_assign("log", new MSRTLogFunction);
+	functionMap.insert_or_assign("while", new MSRTWhileFunction);
+	functionMap.insert_or_assign("eval", new MSRTEvalFunction);
 }
 
-void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
-{
-	std::cout << "MSRT: ManiaScript Runtime\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\nVersion " + (std::string)MSRT_VERSION + "\n\n";
-	MSRT::InitKeywordMap();
-	MSRT::InitVarTypeMap();
-	MSRT::InitFunctionMap();
-	std::fstream script(file);
-	std::string line;
-	std::string data = "";
-	if (!script.is_open()) {
-		MSRT::Log(MSRT::LogType::ERROR, "Couldn't load file " + file + "!");
-		abort();
-	}
-	while (std::getline(script, line)) data += line + " \n";
-
-	if(dataread){
-		std::cout << data + "\n---\n";
-	}
-	
-
+std::vector<MSRT::Sentence> MSRT::Parse(std::string data, bool verboseparsing) {
+	std::vector<MSRT::Sentence> tempProgram;
+	std::vector<MSRT::Sentence> tempProgram2;
 	bool inComment = false;
 	bool inSingleLineComment = false;
 	bool inMagic = false;
@@ -93,7 +127,7 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 	newToken.type = TokenType::UNDEFINED;
 	for (int i = 0; i < data.size(); i++) {
 
-		if (data.at(i) == ';') {
+		if (data.at(i) == ';' && verboseparsing) {
 			std::cout << "inComment: " << inComment << "\n";
 			std::cout << "inSingleLineComment: " << inSingleLineComment << "\n";
 			std::cout << "inMagic: " << inMagic << "\n";
@@ -102,18 +136,18 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 		}
 
 		if (!inComment && !inSingleLineComment && !inMagic) {
-			
+
 			if (data.at(i) == '/') {
-				if(data.at(i + 1) == '*'){
+				if (data.at(i + 1) == '*') {
 					inComment = true;
-					if(verboseparsing) MSRT::Log(MSRT::LogType::INFO, "Crossed comment.");
+					if (verboseparsing) MSRT::Log(MSRT::LogType::INFO, "Crossed comment.");
 					i++;
 				}
 				else if (data.at(i + 1) == '/') {
 					inSingleLineComment = true;
 					if (verboseparsing) MSRT::Log(MSRT::LogType::INFO, "Crossed single line comment.");
 				}
-				
+
 			}
 
 			if ((data.at(i) == '+' || data.at(i) == '-' || data.at(i) == '*' || data.at(i) == '/' || data.at(i) == '^' || data.at(i) == '=') && !inComment && !inSingleLineComment) {
@@ -124,7 +158,7 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 				newToken.tokenContent = "";
 				newToken.type = MSRT::TokenType::UNDEFINED;
 			}
-			else if(!inComment && !inSingleLineComment && !inMagic) {
+			else if (!inComment && !inSingleLineComment && !inMagic) {
 				/*if ((data.at(i) == ';' || data.at(i) == ' ' || data.at(i) == '\n') && newToken.tokenContent != "") {
 					newSentence.tokens.push_back(newToken);
 					newToken.tokenContent = "";
@@ -150,22 +184,22 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 						newSentence.tokens.push_back(newToken);
 						newToken.tokenContent = "";
 						newToken.type = MSRT::TokenType::UNDEFINED;
-						if ((data.at(i) == ';' && data.at(i+1) == '\n')|| data.at(i) == '\n') {
-							program.push_back(newSentence);
+						if (data.at(i) == ';' || data.at(i) == '\n') {
+							tempProgram.push_back(newSentence);
 							newSentence.tokens.clear();
 						}
-						
+
 					}
 					// if (data.at(i) == '"') i++;
 				}
 				else {
-					if(data.at(i) != ';') newToken.tokenContent += data.at(i);
+					if (data.at(i) != ';') newToken.tokenContent += data.at(i);
 				}
 				if (data.at(i) == '"') i++;
 			}
-			
+
 		}
-		if(inComment){
+		if (inComment) {
 			if (data.at(i) == '/' && data.at(i - 1) == '*') inComment = false;
 			// i += 1;
 		}
@@ -181,64 +215,85 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
 				i++;
 			}*/
 			// else{
-				if (data.at(i) == '"') {
-					newToken.tokenContent.erase(0, 1);
-					newSentence.tokens.push_back(newToken);
-					newToken.tokenContent = "";
-					newToken.type = TokenType::UNDEFINED;
-					inMagic = false;
+			if (data.at(i) == '"') {
+				newToken.tokenContent.erase(0, 1);
+				newSentence.tokens.push_back(newToken);
+				newToken.tokenContent = "";
+				newToken.type = TokenType::UNDEFINED;
+				inMagic = false;
+				if (newSentence.tokens.at(0).tokenContent.find("declare") != std::string::npos){
+					tempProgram.push_back(newSentence);
+					newSentence.tokens.clear();
 				}
-				else newToken.tokenContent += data.at(i);
+			}
+			else newToken.tokenContent += data.at(i);
 			// }
 		}
 
 	}
-	std::cout << "Sentences before cleanup: " << program.size() << "\n";
-	for (int s = 0; s < program.size(); s++) {
-		program.at(s).CleanSentence();
-		if (program.at(s).tokens.size() == 0) {
+	if (verboseparsing) std::cout << "Sentences before cleanup: " << tempProgram.size() << "\n";
+	for (int s = 0; s < tempProgram.size(); s++) {
+		tempProgram.at(s).CleanSentence();
+		if (tempProgram.at(s).tokens.size() == 0) {
 			// program.erase(program.begin() + s, program.begin() + (s + 1));
 			// s--;
 		}
 
-		program.at(s).AnalyseSentence();
+		tempProgram.at(s).AnalyseSentence();
 	}
 
-	std::cout << "Sentences after cleanup: " << program.size() << "\n";
-	for (int s = 0; s < program.size(); s++) {
-		if(program.at(s).tokens.size() != 0){
-		if (program.at(s).tokens.at(0).tokenContent.at(0) == '\n') program.at(s).tokens.at(0).tokenContent.erase(0,1);
-		// program.at(s).CleanSentence();
-		// program.at(s).AnalyseSentence();
-		if (verboseparsing) std::cout << "\n\nSentence " << s << ":\n";
-		if (verboseparsing) for (int t = 0; t < program.at(s).tokens.size(); t++) {
-			std::cout << "\"" + program.at(s).tokens.at(t).tokenContent + "\" ";
-			switch (program.at(s).tokens.at(t).type) {
-			case TokenType::UNDEFINED: std::cout << "UNDEFINED"; break;
-			case TokenType::VARIABLE: std::cout << "VARIABLE"; break;
-			case TokenType::TYPE: std::cout << "TYPE"; break;
-			case TokenType::MAGIC: std::cout << "MAGIC"; break;
-			case TokenType::OPERATOR: std::cout << "OPERATOR"; break;
-			case TokenType::KEYWORD: std::cout << "KEYWORD"; break;
-			case TokenType::FUNCTION: std::cout << "FUNCTION"; break;
-			case TokenType::FUNCTION_DECLARATION: std::cout << "FUNCTION_DECLARATION"; break;
+	if (verboseparsing) std::cout << "Sentences after cleanup: " << tempProgram.size() << "\n";
+	for (int s = 0; s < tempProgram.size(); s++) {
+		if (tempProgram.at(s).tokens.size() != 0) {
+			if (tempProgram.at(s).tokens.at(0).tokenContent.at(0) == '\n') tempProgram.at(s).tokens.at(0).tokenContent.erase(0, 1);
+			// program.at(s).CleanSentence();
+			// program.at(s).AnalyseSentence();
+			if (verboseparsing) std::cout << "\n\nSentence " << s << ":\n";
+			if (verboseparsing) for (int t = 0; t < tempProgram.at(s).tokens.size(); t++) {
+				std::cout << "\"" + tempProgram.at(s).tokens.at(t).tokenContent + "\" ";
+				switch (tempProgram.at(s).tokens.at(t).type) {
+				case TokenType::UNDEFINED: std::cout << "UNDEFINED"; break;
+				case TokenType::VARIABLE: std::cout << "VARIABLE"; break;
+				case TokenType::TYPE: std::cout << "TYPE"; break;
+				case TokenType::MAGIC: std::cout << "MAGIC"; break;
+				case TokenType::OPERATOR: std::cout << "OPERATOR"; break;
+				case TokenType::KEYWORD: std::cout << "KEYWORD"; break;
+				case TokenType::FUNCTION: std::cout << "FUNCTION"; break;
+				case TokenType::FUNCTION_DECLARATION: std::cout << "FUNCTION_DECLARATION"; break;
+				}
+				std::cout << " | ";
 			}
-			std::cout << " | ";
-		}
 		}
 		if (verboseparsing) std::cout << "\n";
 	}
-	std::cout << "\n\n---\n\n";
+	if (verboseparsing) std::cout << "\n\n---\n\n";
+	return tempProgram;
 }
 
-
-void MSRT::Run() {
-	for (int i = 0; i < program.size(); i++) {
-		if(program.at(i).tokens.size() > 0)
-			program.at(i).RunSentence();
+void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
+{
+	std::cout << "MSRT: ManiaScript Runtime\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\nVersion " + (std::string)MSRT_VERSION + "\n\n";
+	MSRT::InitKeywordMap();
+	MSRT::InitVarTypeMap();
+	MSRT::InitFunctionMap();
+	std::fstream script(file);
+	std::string line;
+	std::string data = "";
+	if (!script.is_open()) {
+		MSRT::Log(MSRT::LogType::ERROR, "Couldn't load file " + file + "!");
+		abort();
 	}
-	std::cout << "\n\n";
+	while (std::getline(script, line)) data += line + "     \n";
+
+	if(dataread){
+		std::cout << data + "\n---\n";
+	}
+	program = MSRT::Parse(data, verboseparsing);
+
+	
 }
+
+
 
 void MSRT::Sentence::RunSentence(){
 	if (tokens.at(0).type == TokenType::KEYWORD) {
@@ -252,8 +307,13 @@ void MSRT::Sentence::RunSentence(){
 			case VarType::TEXT:
 				variablesTypes.insert_or_assign(tokens.at(2).tokenContent, VarType::TEXT);
 				if (tokens.at(3).tokenContent == "=") {
+					std::string tempDef;
 					// newText.data = tokens.at(4).tokenContent;
-					varText.insert_or_assign(tokens.at(2).tokenContent, tokens.at(4).tokenContent);
+					if (tokens.at(4).tokenContent == "Getline") {
+						std::getline(std::cin, tempDef);
+					}
+					else tempDef = tokens.at(4).tokenContent;
+					varText.insert_or_assign(tokens.at(2).tokenContent, tempDef);
 				}
 				break;
 			case VarType::INTEGER:
@@ -303,6 +363,13 @@ void MSRT::Sentence::RunSentence(){
 				}
 				argdata = tokens.at(i).tokenContent;
 			}
+			if (tokens.at(i).type == TokenType::KEYWORD) {
+				if (tokens.at(i).tokenContent == "Getline") {
+					std::getline(std::cin, argdata);
+				}
+				else argdata = tokens.at(i).tokenContent;
+				varType = VarType::TEXT;
+			}
 			if (i + 1 != tokens.size()) {
 				if (tokens.at(i + 1).type == TokenType::OPERATOR) {
 					if (tokens.at(i + 1).tokenContent == "+" || tokens.at(i + 1).tokenContent == "^") {
@@ -338,6 +405,7 @@ void MSRT::Sentence::RunSentence(){
 					i += 2;
 				}
 			}
+			
 			arguments.push_back({ varType, argdata });
 		}
 		functionMap.at(tokens.at(0).tokenContent)->Execute(arguments);

@@ -1,33 +1,24 @@
 /*
 
-declare Text comment1 = "qwertyuiop";
+MSRTCLI : ManiaScript Runtime Command Line Interface
+Small shell in ManiaScript
 
-declare Text comment2 = "qwertyuiop";
-
-declare Text comment3 = "qwertyuiop";
+What it needs:
+- input
+- eval
+- scoping
+- control flow
 
 */
-// declare Text testcomments = "ThisShouldntBeDefined";
 
-declare Text testtext = "Hello ";
-declare Text testtext2 = "Goodbye ";
-declare Text testtext3 = "Hello ";
-declare Text testtext4 = "Goodbye ";
-declare Text testtext5 = "Hello ";
-declare Text testtext6 = "Goodbye ";
-declare Text testtext7 = "Hello ";
-declare Text testtext8 = "Goodbye ";
-declare Text testtext9 = "Hello ";
-declare Text testtext10 = "Goodbye ";
-declare Text testtext11 = "Hello ";
-declare Text testtext12 = "Goodbye ";
-declare Text testtext13 = "Hello ";
-declare Text testtext14 = "Goodbye ";
+declare Text cursor = ">>";
 
+log( "MSRTCLI: ManiaScript Runtime Command Line Interface\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\n\n" );
 
-log(testtext ^ "world!\n");
-log(testtext ^ "world!\n");
-log(testtext ^ "world!\n");
-log(testtext2 ^ "world!\n");
-log(testtext2 ^ "world!\n");
-log(testtext2 ^ "world!\n");
+while(True){ 
+
+    log(cursor);
+    
+    eval(Getline);
+
+}
