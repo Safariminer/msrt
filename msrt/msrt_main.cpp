@@ -446,6 +446,10 @@ void MSRT::Sentence::AnalyseSentence() {
 			}
 		}
 		if (std::find(tempVarNames.begin(), tempVarNames.end(), tokens.at(i).tokenContent) != tempVarNames.end()) tokens.at(i).type = TokenType::VARIABLE;
+
+		if (tokens.at(i).type == TokenType::FUNCTION && tokens.at(tokens.size() - 1).type == TokenType::KEYWORD) {
+			if (keywordMap.at(tokens.at(tokens.size() - 1).tokenContent) == Keyword::SCOPEEND) tokens.at(i).type = TokenType::FUNCTION_DECLARATION;
+		}
 	}
 }
 

@@ -12,13 +12,9 @@ What it needs:
 */
 
 declare Text cursor = ">>";
-
 log( "MSRTCLI: ManiaScript Runtime Command Line Interface\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\n\n" );
-
 while(True){ 
-
     log(cursor);
-    
     eval(Getline);
 
 }

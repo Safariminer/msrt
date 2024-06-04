@@ -9,5 +9,4 @@ declare Text comment3 = "qwertyuiop";
 */
 // declare Text testcomments = "ThisShouldntBeDefined";
 declare Text testtext = "Hello "; // can it avoid this comment?
-
 log(testtext ^ "world!\n");
