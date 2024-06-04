@@ -270,9 +270,9 @@ std::vector<MSRT::Sentence> MSRT::Parse(std::string data, bool verboseparsing) {
 	return tempProgram;
 }
 
-void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing)
+void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing, bool header)
 {
-	std::cout << "MSRT: ManiaScript Runtime\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\nVersion " + (std::string)MSRT_VERSION + "\n\n";
+	if(header) std::cout << "MSRT: ManiaScript Runtime\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\nVersion " + (std::string)MSRT_VERSION + "\n\n";
 	MSRT::InitKeywordMap();
 	MSRT::InitVarTypeMap();
 	MSRT::InitFunctionMap();

@@ -19,7 +19,7 @@ extern std::map<std::string, MSRT::Function*> functionMap;
 
 namespace MSRT {
 
-	void InitMSRT(std::string file, bool dataread = false, bool verboseparsing = false); // All you truly need.
+	void InitMSRT(std::string file, bool dataread = false, bool verboseparsing = false, bool header = true); // All you truly need.
 	void Run();
 
 	void InitKeywordMap();
