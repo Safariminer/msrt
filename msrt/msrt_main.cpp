@@ -15,19 +15,29 @@
 #endif
 
 
+// important maps
 std::map<std::string, MSRT::Keyword> keywordMap;
 std::map<std::string, MSRT::VarType> vartypeMap;
-std::map<std::string, MSRT::Function*> functionMap;
+std::map<std::string, MSRT::Function*> functionMap; // you can expose it in msrt_main.h with #define MSRT_CUSTOM_FUNCTIONS_NEEDED
 
 std::vector<MSRT::Sentence> program;
 std::vector<std::string> tempVarNames; // only for analysis
+
+
+// maps for variables
 std::map<std::string, MSRT::VarType> variablesTypes;
 
 std::map<std::string, std::string> varText;
 std::map<std::string, int> varInteger;
 std::map<std::string, double> varReal;
-int currLine;
+
+
+int currLine; // current line in program
+
 void MSRT::Run() {
+
+	// for each sentence -> <sentence>.RunSentence();
+
 	for (currLine = 0; currLine < program.size(); currLine++) {
 		if (program.at(currLine).tokens.size() > 0)
 			program.at(currLine).RunSentence();
@@ -40,7 +50,6 @@ class MSRTLogFunction : public MSRT::Function {
 public:
 	void Execute(std::vector<MSRT::FunctionArgument> args) {
 		for (int i = 0; i < args.size(); i++) {
-			// std::cout << args.at(i).data.replace(args.at(i).data.find("\\n"), std::string("\\n").length(), "\n");
 			for (int j = 0; j < args.at(i).data.size(); j++) {
 				if (args.at(i).data.at(j) == '\\') {
 					if (args.at(i).data.at(j + 1) == 'n') std::cout << "\n";
@@ -74,7 +83,7 @@ public:
 		for (int i = start; i < program.size(); i++) {
 			for (int j = 0; j < program.at(i).tokens.size(); j++) {
 				if (program.at(i).tokens.at(j).type == MSRT::TokenType::KEYWORD) {
-					if (keywordMap.at(program.at(i).tokens.at(j).tokenContent) == MSRT::Keyword::SCOPEEND) stop = j;
+					if (keywordMap.at(program.at(i).tokens.at(j).tokenContent) == MSRT::Keyword::SCOPEEND) stop = i;
 				}
 			}
 		}
@@ -231,36 +240,33 @@ std::vector<MSRT::Sentence> MSRT::Parse(std::string data, bool verboseparsing) {
 		}
 
 	}
+	tempProgram.push_back(newSentence);
 	if (verboseparsing) std::cout << "Sentences before cleanup: " << tempProgram.size() << "\n";
 	for (int s = 0; s < tempProgram.size(); s++) {
 		tempProgram.at(s).CleanSentence();
-		if (tempProgram.at(s).tokens.size() == 0) {
-			// program.erase(program.begin() + s, program.begin() + (s + 1));
-			// s--;
-		}
-
 		tempProgram.at(s).AnalyseSentence();
 	}
-
 	if (verboseparsing) std::cout << "Sentences after cleanup: " << tempProgram.size() << "\n";
+
+
 	for (int s = 0; s < tempProgram.size(); s++) {
 		if (tempProgram.at(s).tokens.size() != 0) {
 			if (tempProgram.at(s).tokens.at(0).tokenContent.at(0) == '\n') tempProgram.at(s).tokens.at(0).tokenContent.erase(0, 1);
-			// program.at(s).CleanSentence();
-			// program.at(s).AnalyseSentence();
+
 			if (verboseparsing) std::cout << "\n\nSentence " << s << ":\n";
+
 			if (verboseparsing) for (int t = 0; t < tempProgram.at(s).tokens.size(); t++) {
-				std::cout << "\"" + tempProgram.at(s).tokens.at(t).tokenContent + "\" ";
-				switch (tempProgram.at(s).tokens.at(t).type) {
-				case TokenType::UNDEFINED: std::cout << "UNDEFINED"; break;
-				case TokenType::VARIABLE: std::cout << "VARIABLE"; break;
-				case TokenType::TYPE: std::cout << "TYPE"; break;
-				case TokenType::MAGIC: std::cout << "MAGIC"; break;
-				case TokenType::OPERATOR: std::cout << "OPERATOR"; break;
-				case TokenType::KEYWORD: std::cout << "KEYWORD"; break;
-				case TokenType::FUNCTION: std::cout << "FUNCTION"; break;
-				case TokenType::FUNCTION_DECLARATION: std::cout << "FUNCTION_DECLARATION"; break;
-				}
+									std::cout << "\"" + tempProgram.at(s).tokens.at(t).tokenContent + "\" ";
+									switch (tempProgram.at(s).tokens.at(t).type) {
+									case TokenType::UNDEFINED: std::cout << "UNDEFINED"; break;
+									case TokenType::VARIABLE: std::cout << "VARIABLE"; break;
+									case TokenType::TYPE: std::cout << "TYPE"; break;
+									case TokenType::MAGIC: std::cout << "MAGIC"; break;
+									case TokenType::OPERATOR: std::cout << "OPERATOR"; break;
+									case TokenType::KEYWORD: std::cout << "KEYWORD"; break;
+									case TokenType::FUNCTION: std::cout << "FUNCTION"; break;
+									case TokenType::FUNCTION_DECLARATION: std::cout << "FUNCTION_DECLARATION"; break;
+								}
 				std::cout << " | ";
 			}
 		}
@@ -273,9 +279,13 @@ std::vector<MSRT::Sentence> MSRT::Parse(std::string data, bool verboseparsing) {
 void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing, bool header)
 {
 	if(header) std::cout << "MSRT: ManiaScript Runtime\nWritten by Safariminer\nsafari.is-probably.gay - github.com/safariminer\nVersion " + (std::string)MSRT_VERSION + "\n\n";
-	MSRT::InitKeywordMap();
-	MSRT::InitVarTypeMap();
-	MSRT::InitFunctionMap();
+	
+	// Initialize key maps
+	MSRT::InitKeywordMap(); // keyword map
+	MSRT::InitVarTypeMap(); // vartype map
+	MSRT::InitFunctionMap(); // function map
+
+	// read file into memory
 	std::fstream script(file);
 	std::string line;
 	std::string data = "";
@@ -283,14 +293,18 @@ void MSRT::InitMSRT(std::string file, bool dataread, bool verboseparsing, bool h
 		MSRT::Log(MSRT::LogType::ERROR, "Couldn't load file " + file + "!");
 		abort();
 	}
-	while (std::getline(script, line)) data += line + "     \n";
+	while (std::getline(script, line)) data += line + "     \n"; // add spaces as a workaround for parsing. parsing needs fixing anyways but for now it works fine enough.
 
+	// display code if specified to detect faulty file reading.
 	if(dataread){
 		std::cout << data + "\n---\n";
 	}
-	program = MSRT::Parse(data, verboseparsing);
 
-	
+	// parse the code.
+	program = MSRT::Parse(data, verboseparsing);
+								// ^
+								// |
+								// whether or not you want token types displayed
 }
 
 
@@ -353,7 +367,7 @@ void MSRT::Sentence::RunSentence(){
 					break;
 				}
 			}
-			if (tokens.at(i).type == TokenType::MAGIC) {
+			if (tokens.at(i).type == TokenType::MAGIC || tokens.at(i).type == TokenType::UNDEFINED) {
 				varType = VarType::TEXT;
 				if (std::regex_match(tokens.at(i).tokenContent, std::regex("[0-9]+([\\.][0-9]+)?"))) {
 					varType = VarType::INTEGER;
